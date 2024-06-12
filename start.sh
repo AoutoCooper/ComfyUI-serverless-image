@@ -1,20 +1,30 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-# Use libtcmalloc for better memory management
-TCMALLOC="$(ldconfig -p | grep -Po "libtcmalloc.so.\d" | head -n 1)"
-export LD_PRELOAD="${TCMALLOC}"
+echo "Worker Initiated"
 
-# Serve the API and don't shutdown the container
-if [ "$SERVE_API_LOCALLY" == "true" ]; then
-    echo "runpod-worker-comfy: Starting ComfyUI"
-    python3 /comfyui/main.py --disable-auto-launch --disable-metadata --listen &
+echo "Symlinking files from Network Volume"
+rm -rf /workspace && \
+  ln -s /runpod-volume /workspace
 
-    echo "runpod-worker-comfy: Starting RunPod Handler"
-    python3 -u /rp_handler.py --rp_serve_api --rp_api_host=0.0.0.0
-else
-    echo "runpod-worker-comfy: Starting ComfyUI"
-    python3 /comfyui/main.py --disable-auto-launch --disable-metadata &
 
-    echo "runpod-worker-comfy: Starting RunPod Handler"
-    python3 -u /rp_handler.py
-fi
+# Print the contents of /workspace
+echo "Contents of /workspace:"
+ls -la /workspace
+
+# Print the contents of /app
+echo "Contents of /app:"
+ls -la /app
+
+# Print the contents of /app/src
+echo "Contents of /app/src:"
+ls -la /app/src
+
+echo "Starting ComfyUI API"
+export PYTHONUNBUFFERED=true
+export HF_HOME="/workspace"
+source /workspace/venv/bin/activate
+
+python3 /workspace/ComfyUI/main.py --port 3000 > /workspace/logs/comfyui.log 2>&1 &
+deactivate
+
+python3 comfy_serverless.py
